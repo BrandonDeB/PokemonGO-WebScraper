@@ -18,36 +18,40 @@ public class App
     public static void main( String[] args ) throws IOException {
         System.out.println("Running Pokemon GO webscraper");
         System.out.println("The Porgram will now find each pokemon's move");
-        File pokemonMaster = new File("internetreader\\pokemonMaster.xml");
+        File pokemonMaster = new File("pokemonMaster.xml");
         Document document = Jsoup.parse(pokemonMaster, "UTF-8", "");
         Elements allPokemon = document.getElementsByTag("species");
 
-        Document output = new Document("");
-        Element root = output.createElement("Pokemon");
-        output.appendChild(root);
+        Document pokemonXML = new Document("");
+        Element pokemonRoot = pokemonXML.createElement("Pokemon");
+        pokemonXML.appendChild(pokemonRoot);
+
+        Document moveXML = new Document("");
+        Element moveRoot = moveXML.createElement("Moves");
+        moveXML.appendChild(moveRoot);
 
         System.out.println("allPokemon");
         for (int i = 0; i < allPokemon.size(); i++) {
             Element singlePoke = allPokemon.get(i);
 
-            Element species = output.createElement("species");
+            Element species = pokemonXML.createElement("species");
             species.attr("id", Integer.toString(i + 1));
-            root.appendChild(species);
+            pokemonRoot.appendChild(species);
 
-            Element name = output.createElement("name");
+            Element name = pokemonXML.createElement("name");
             name.html(singlePoke.getElementsByTag("name").html());
             species.appendChild(name);
 
-            Element stats = output.createElement("stats");
+            Element stats = pokemonXML.createElement("stats");
             stats.html(singlePoke.getElementsByTag("stats").html());
             species.appendChild(stats);
 
-            Element typeone = output.createElement("typeone");
+            Element typeone = pokemonXML.createElement("typeone");
             typeone.html(singlePoke.getElementsByTag("typeone").html());
             species.appendChild(typeone);
 
             try {
-                Element typetwo = output.createElement("typetwo");
+                Element typetwo = pokemonXML.createElement("typetwo");
                 typetwo.html(singlePoke.getElementsByTag("typetwo").html());
                 species.appendChild(typetwo);
             } catch (Exception e) {
@@ -55,48 +59,73 @@ public class App
             }
 
             String url = "https://pokemongo.fandom.com/wiki/" + singlePoke.getElementsByTag("name").html();
+            if (singlePoke.getElementsByTag("name").html().equals("Nidoran ♀")) {
+                url = "https://pokemongo.fandom.com/wiki/Nidoran%E2%99%80";
+            } else if(singlePoke.getElementsByTag("name").html().equals("Mr. Mime")){
+                url = "https://pokemongo.fandom.com/wiki/Mr._Mime";
+            } else if (singlePoke.getElementsByTag("name").html().equals("Nidoran ♂")) {
+                url = "https://pokemongo.fandom.com/wiki/Nidoran%E2%99%82";
+            }
             Document wikiArticle = Jsoup.connect(url).get();
 
 
             Elements attacks = wikiArticle.getElementsByClass("pogo-attack-item-title");
             
             for (int j = 0; j < attacks.size(); j++) {
-                Element attack = output.createElement("attack");
-                attack.attr("name", attacks.get(j).firstElementChild().html());
+                Element pokemonAttack = pokemonXML.createElement("attack");
+                Element moveAttack = moveXML.createElement("attack");
+                pokemonAttack.attr("id", attacks.get(j).firstElementChild().html()); //sets the attack name inside attack param
+                moveAttack.attr("id", attacks.get(j).firstElementChild().html());
+
                 System.out.println(attacks.get(j).firstElementChild().html());
                 Document moveArticle;
-                if (!attacks.get(j).firstElementChild().html().equals("Psychic")) {
-                    moveArticle = Jsoup.connect("https://pokemongo.fandom.com/wiki/" + attacks.get(j).firstElementChild().html()).get();
-                } else {
-                    moveArticle = Jsoup.connect("https://pokemongo.fandom.com/wiki/Psychic_(Attack)").get();
+
+                if(moveXML.getElementsByAttributeValue("id", attacks.get(j).firstElementChild().html()).size() < 1) {
+
+
+                    if (!attacks.get(j).firstElementChild().html().equals("Psychic")) {
+                        moveArticle = Jsoup.connect("https://pokemongo.fandom.com/wiki/" + attacks.get(j).firstElementChild().html()).get();
+                    } else {
+                        moveArticle = Jsoup.connect("https://pokemongo.fandom.com/wiki/Psychic_(Attack)").get();
+                    }
+
+                    try {
+                    System.out.println(moveArticle.getElementsByAttributeValue("title", "Attacks").first().html());
+                    pokemonAttack.html(moveArticle.getElementsByAttributeValue("title", "Attacks").first().html());
+
+                    Elements damageElements = moveArticle.getElementsByAttributeValue("data-source", "damagep");
+                    Element damage = pokemonXML.createElement("damage");
+                    damage.html(damageElements.get(1).html());
+                    moveAttack.appendChild(damage);
+
+                    Elements cooldownElements = moveArticle.getElementsByAttributeValue("data-source", "cooldown");
+                    Element cooldown = moveXML.createElement("cooldown");
+                    cooldown.html(cooldownElements.get(1).html());
+                    moveAttack.appendChild(cooldown);
+
+                    Elements energyElements = moveArticle.getElementsByAttributeValue("data-source", "energyp");
+                    Element energy = moveXML.createElement("energy");
+                    energy.html(energyElements.get(1).html());
+                    moveAttack.appendChild(energy);
+
+                    Elements typeElements = moveArticle.getElementsByAttributeValueEnding("alt", "-type attack");
+                    String fullString = typeElements.attr("alt");
+                    fullString = fullString.replaceAll("-type attack", "");
+                    Element type = moveXML.createElement("movetype");
+                    type.html(fullString);
+                    moveAttack.appendChild(type);
+                    } catch (Exception e) {
+                        System.out.println("this move is broken");
+                    }
+                    moveRoot.appendChild(moveAttack);
+                }
+                else {
+                    System.out.println("Repeated move: " + attacks.get(j).firstElementChild().html());
+                    pokemonAttack.html(pokemonXML.getElementsByAttributeValue("id", attacks.get(j).firstElementChild().html()).first().html());
                 }
 
-                System.out.println(moveArticle.getElementsByAttributeValue("title", "Attacks").first().html());
+                species.appendChild(pokemonAttack);
 
-                Elements damageElements = moveArticle.getElementsByAttributeValue("data-source", "damagep");
-                Element damage = output.createElement("damage");
-                damage.html(damageElements.get(1).html());
-                attack.appendChild(damage);
-                attack.attr("movespeed", moveArticle.getElementsByAttributeValue("title", "Attacks").first().html());
-
-                Elements cooldownElements = moveArticle.getElementsByAttributeValue("data-source", "cooldown");
-                Element cooldown = output.createElement("cooldown");
-                cooldown.html(cooldownElements.get(1).html());
-                attack.appendChild(cooldown);
-
-                Elements energyElements = moveArticle.getElementsByAttributeValue("data-source", "energyp");
-                Element energy = output.createElement("energy");
-                energy.html(energyElements.get(1).html());
-                attack.appendChild(energy);
-
-                Elements typeElements = moveArticle.getElementsByAttributeValueEnding("alt", "-type attack");
-                String fullString = typeElements.attr("alt");
-                fullString = fullString.replaceAll("-type attack", "");
-                Element type = output.createElement("movetype");
-                type.html(fullString);
-                attack.appendChild(type);
-
-                species.appendChild(attack);
 
             }
 
@@ -107,11 +136,16 @@ public class App
         docSetting.indentAmount(4);
         docSetting.outline(true);
         docSetting.syntax(Document.OutputSettings.Syntax.xml);
-        output = output.outputSettings(docSetting);
-        output.parser();
-        BufferedWriter fw = new BufferedWriter(new FileWriter("output.xml"));
-        fw.write(output.toString());
+        pokemonXML = pokemonXML.outputSettings(docSetting);
+        pokemonXML.parser();
+        moveXML = moveXML.outputSettings(docSetting);
+        moveXML.parser();
+        BufferedWriter fw = new BufferedWriter(new FileWriter("pokemonXML.xml"));
+        fw.write(pokemonXML.toString());
+        BufferedWriter dw = new BufferedWriter(new FileWriter("moveXML.xml"));
+        dw.write(moveXML.toString());
         fw.close();
+        dw.close();
 
     }
     
